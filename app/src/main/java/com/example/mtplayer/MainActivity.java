@@ -33,9 +33,11 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.example.mtplayer.databinding.ActivityMainBinding;
 import com.example.mtplayer.viewmodels.SongViewModel;
+import com.bumptech.glide.Glide;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import androidx.appcompat.widget.SearchView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,9 +49,18 @@ public class MainActivity extends AppCompatActivity {
     private SongViewModel songViewModel;
     private static final String TAG = "MainActivity";
 
-    private final ActivityResultLauncher<String> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                if (isGranted) {
+    private final ActivityResultLauncher<String[]> requestPermissionsLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean readGranted = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Boolean granted = result.get(Manifest.permission.READ_MEDIA_AUDIO);
+                    readGranted = (granted != null && granted);
+                } else {
+                    Boolean granted = result.get(Manifest.permission.READ_EXTERNAL_STORAGE);
+                    readGranted = (granted != null && granted);
+                }
+                
+                if (readGranted) {
                     loadSongs();
                 } else {
                     Snackbar.make(binding.getRoot(), "Permission denied to read audio files", Snackbar.LENGTH_LONG).show();
@@ -83,14 +94,58 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
-        binding.fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                checkPermissionsAndLoadSongs();
+        setupMiniPlayer(navController);
+
+        checkPermissionsAndLoadSongs();
+    }
+
+    private void setupMiniPlayer(NavController navController) {
+        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+            if (destination.getId() == R.id.SecondFragment) {
+                binding.miniPlayer.miniPlayerContainer.setVisibility(View.GONE);
+            } else {
+                updateMiniPlayerVisibility();
             }
         });
 
-        checkPermissionsAndLoadSongs();
+        songViewModel.getSelectedSong().observe(this, song -> {
+            if (song != null) {
+                binding.miniPlayer.tvMiniTitle.setText(song.getTitle());
+                binding.miniPlayer.tvMiniArtist.setText(song.getArtist());
+                Glide.with(this)
+                        .load(song.getAlbumArtUri())
+                        .placeholder(android.R.drawable.ic_menu_gallery)
+                        .into(binding.miniPlayer.ivMiniAlbumArt);
+                
+                updateMiniPlayerVisibility();
+            }
+        });
+
+        songViewModel.getIsPlaying().observe(this, isPlaying -> {
+            binding.miniPlayer.btnMiniPlayPause.setImageResource(isPlaying ?
+                    android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play);
+        });
+
+        binding.miniPlayer.btnMiniPlayPause.setOnClickListener(v -> songViewModel.togglePlayPause());
+        binding.miniPlayer.btnMiniPrev.setOnClickListener(v -> songViewModel.playPrevious());
+        binding.miniPlayer.btnMiniNext.setOnClickListener(v -> songViewModel.playNext());
+        
+        binding.miniPlayer.miniPlayerContainer.setOnClickListener(v -> {
+            navController.navigate(R.id.SecondFragment);
+        });
+    }
+
+    private void updateMiniPlayerVisibility() {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment != null) {
+            NavController navController = navHostFragment.getNavController();
+            boolean showMiniPlayer = navController.getCurrentDestination() != null && 
+                navController.getCurrentDestination().getId() != R.id.SecondFragment &&
+                songViewModel.getSelectedSong().getValue() != null;
+            
+            binding.miniPlayer.miniPlayerContainer.setVisibility(showMiniPlayer ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void checkPermissionsAndLoadSongs() {
@@ -111,8 +166,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (!listPermissionsNeeded.isEmpty()) {
-            requestPermissionLauncher.launch(listPermissionsNeeded.get(0));
-            // Note: Simplification here, ideally request all at once with RequestMultiplePermissions
+            requestPermissionsLauncher.launch(listPermissionsNeeded.toArray(new String[0]));
         } else {
             loadSongs();
         }
@@ -135,6 +189,7 @@ public class MainActivity extends AppCompatActivity {
                     MediaStore.Audio.Media.TITLE,
                     MediaStore.Audio.Media.ARTIST,
                     MediaStore.Audio.Media.ALBUM,
+                    MediaStore.Audio.Media.ALBUM_ID,
                     MediaStore.Audio.Media.DURATION,
                     MediaStore.Audio.Media.MIME_TYPE
             };
@@ -158,6 +213,7 @@ public class MainActivity extends AppCompatActivity {
                         int titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE);
                         int artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
                         int albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
+                        int albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID);
                         int durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
 
                         do {
@@ -165,12 +221,13 @@ public class MainActivity extends AppCompatActivity {
                             String title = cursor.getString(titleColumn);
                             String artist = cursor.getString(artistColumn);
                             String album = cursor.getString(albumColumn);
+                            long albumId = cursor.getLong(albumIdColumn);
                             long duration = cursor.getLong(durationColumn);
 
                             Uri contentUri = ContentUris.withAppendedId(
                                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
 
-                            Song song = new Song(id, title, artist, album, duration, contentUri);
+                            Song song = new Song(id, title, artist, album, albumId, duration, contentUri);
                             songList.add(song);
                         } while (cursor.moveToNext());
                     }
@@ -197,6 +254,26 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        if (searchItem != null) {
+            SearchView searchView = (SearchView) searchItem.getActionView();
+            if (searchView != null) {
+                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                    @Override
+                    public boolean onQueryTextSubmit(String query) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onQueryTextChange(String newText) {
+                        songViewModel.setSearchQuery(newText);
+                        return true;
+                    }
+                });
+            }
+        }
+
         return true;
     }
 

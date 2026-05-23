@@ -41,10 +41,24 @@ public class FirstFragment extends Fragment {
 
         binding.rvSongs.setAdapter(adapter);
 
+        adapter.setOnFilterResultsListener(count -> 
+            binding.tvEmptyState.setVisibility(count == 0 ? View.VISIBLE : View.GONE)
+        );
+
         viewModel.getSongs().observe(getViewLifecycleOwner(), songs -> {
             if (songs != null) {
                 adapter.setSongs(songs);
+                binding.tvEmptyState.setVisibility(songs.isEmpty() ? View.VISIBLE : View.GONE);
+
+                String query = viewModel.getSearchQuery().getValue();
+                if (query != null && !query.isEmpty()) {
+                    adapter.getFilter().filter(query);
+                }
             }
+        });
+
+        viewModel.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
+            adapter.getFilter().filter(query);
         });
     }
 

@@ -2,6 +2,7 @@ package com.example.mtplayer.viewmodels;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -10,6 +11,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
@@ -21,6 +23,7 @@ import com.example.mtplayer.services.PlayerService;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -33,7 +36,17 @@ public class SongViewModel extends ViewModel {
     private final MutableLiveData<Integer> audioSessionId = new MutableLiveData<>(0);
     private final MutableLiveData<Float> speed = new MutableLiveData<>(1.0f);
     private final MutableLiveData<Float> pitch = new MutableLiveData<>(1.0f);
+    private final MutableLiveData<String> searchQuery = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> shuffleModeEnabled = new MutableLiveData<>(false);
+    private final MutableLiveData<Integer> repeatMode = new MutableLiveData<>(Player.REPEAT_MODE_ALL);
+    private final MutableLiveData<Boolean> stopAfterCurrent = new MutableLiveData<>(false);
     
+    private SharedPreferences prefs;
+    private static final String PREFS_NAME = "MTPlayerPrefs";
+    private static final String KEY_SHUFFLE = "shuffle_mode";
+    private static final String KEY_REPEAT = "repeat_mode";
+    private static final String KEY_STOP_AFTER = "stop_after_current";
+
     private final PlaylistManager playlistManager = new PlaylistManager();
     private MediaController mediaController;
     private ListenableFuture<MediaController> controllerFuture;
@@ -52,6 +65,11 @@ public class SongViewModel extends ViewModel {
     public void initController(Context context) {
         if (mediaController != null) return;
 
+        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        shuffleModeEnabled.setValue(prefs.getBoolean(KEY_SHUFFLE, false));
+        repeatMode.setValue(prefs.getInt(KEY_REPEAT, Player.REPEAT_MODE_ALL));
+        stopAfterCurrent.setValue(prefs.getBoolean(KEY_STOP_AFTER, false));
+
         SessionToken sessionToken = new SessionToken(context, new ComponentName(context, PlayerService.class));
         controllerFuture = new MediaController.Builder(context, sessionToken).buildAsync();
         controllerFuture.addListener(() -> {
@@ -66,7 +84,15 @@ public class SongViewModel extends ViewModel {
                 }
 
                 // Apply initial playback parameters
-                mediaController.setPlaybackParameters(new PlaybackParameters(speed.getValue(), pitch.getValue()));
+                if (speed.getValue() != null && pitch.getValue() != null) {
+                    mediaController.setPlaybackParameters(new PlaybackParameters(speed.getValue(), pitch.getValue()));
+                }
+                if (shuffleModeEnabled.getValue() != null) {
+                    mediaController.setShuffleModeEnabled(shuffleModeEnabled.getValue());
+                }
+                if (repeatMode.getValue() != null) {
+                    mediaController.setRepeatMode(repeatMode.getValue());
+                }
 
                 mediaController.addListener(new Player.Listener() {
                     @Override
@@ -81,9 +107,27 @@ public class SongViewModel extends ViewModel {
 
                     @Override
                     public void onMediaItemTransition(MediaItem mediaItem, int reason) {
-                        if (mediaItem != null) {
+                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && Boolean.TRUE.equals(stopAfterCurrent.getValue())) {
+                            mediaController.pause();
+                            // Optional: Reset stopAfterCurrent if you want it to be a one-shot behavior
+                            // stopAfterCurrent.setValue(false);
+                            // if (prefs != null) prefs.edit().putBoolean(KEY_STOP_AFTER, false).apply();
+                        }
+
+                        if (mediaItem != null && mediaItem.mediaId != null) {
                             duration.setValue(mediaController.getDuration());
-                            // Sync current song from playlist manager if needed
+                            
+                            // Find the song in our list and update selectedSong
+                            List<Song> currentSongs = songs.getValue();
+                            if (currentSongs != null) {
+                                for (Song s : currentSongs) {
+                                    if (String.valueOf(s.getId()).equals(mediaItem.mediaId)) {
+                                        selectedSong.setValue(s);
+                                        playlistManager.setCurrentSong(s);
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
                     
@@ -112,17 +156,36 @@ public class SongViewModel extends ViewModel {
     }
 
     public void selectSong(Song song) {
-        selectedSong.setValue(song);
-        playlistManager.setCurrentSong(song);
-        
         if (mediaController != null) {
-            MediaItem mediaItem = new MediaItem.Builder()
-                    .setUri(song.getUri())
-                    .setMediaId(String.valueOf(song.getId()))
-                    .build();
-            mediaController.setMediaItem(mediaItem);
-            mediaController.prepare();
-            mediaController.play();
+            List<Song> songList = songs.getValue();
+            if (songList != null) {
+                int index = songList.indexOf(song);
+                if (index != -1) {
+                    if (mediaController.getMediaItemCount() != songList.size()) {
+                        // Populate the playlist if not already done
+                        List<MediaItem> mediaItems = new ArrayList<>();
+                        for (Song s : songList) {
+                            MediaMetadata metadata = new MediaMetadata.Builder()
+                                    .setTitle(s.getTitle())
+                                    .setArtist(s.getArtist())
+                                    .setAlbumTitle(s.getAlbum())
+                                    .setArtworkUri(s.getAlbumArtUri())
+                                    .build();
+
+                            mediaItems.add(new MediaItem.Builder()
+                                    .setUri(s.getUri())
+                                    .setMediaId(String.valueOf(s.getId()))
+                                    .setMediaMetadata(metadata)
+                                    .build());
+                        }
+                        mediaController.setMediaItems(mediaItems, index, 0);
+                    } else {
+                        mediaController.seekTo(index, 0);
+                    }
+                    mediaController.prepare();
+                    mediaController.play();
+                }
+            }
         }
     }
 
@@ -137,16 +200,29 @@ public class SongViewModel extends ViewModel {
     }
 
     public void playNext() {
-        Song nextSong = playlistManager.next();
-        if (nextSong != null) {
-            selectSong(nextSong);
+        if (mediaController != null) {
+            if (Boolean.TRUE.equals(stopAfterCurrent.getValue())) {
+                mediaController.pause();
+            } else if (repeatMode.getValue() != null && repeatMode.getValue() == Player.REPEAT_MODE_ONE) {
+                mediaController.seekTo(0);
+            } else {
+                if (mediaController.hasNextMediaItem()) {
+                    mediaController.seekToNext();
+                } else {
+                    // Manual circular behavior if seekToNext is restricted
+                    mediaController.seekTo(0, 0);
+                }
+            }
         }
     }
 
     public void playPrevious() {
-        Song prevSong = playlistManager.previous();
-        if (prevSong != null) {
-            selectSong(prevSong);
+        if (mediaController != null) {
+            if (mediaController.hasPreviousMediaItem()) {
+                mediaController.seekToPrevious();
+            } else if (mediaController.getMediaItemCount() > 0) {
+                mediaController.seekTo(mediaController.getMediaItemCount() - 1, 0);
+            }
         }
     }
 
@@ -191,6 +267,14 @@ public class SongViewModel extends ViewModel {
     public LiveData<Float> getSpeed() { return speed; }
     public LiveData<Float> getPitch() { return pitch; }
 
+    public void setSearchQuery(String query) {
+        searchQuery.setValue(query);
+    }
+
+    public LiveData<String> getSearchQuery() {
+        return searchQuery;
+    }
+
     @Override
     protected void onCleared() {
         super.onCleared();
@@ -202,6 +286,59 @@ public class SongViewModel extends ViewModel {
 
     public LiveData<Song> getSelectedSong() {
         return selectedSong;
+    }
+
+    public LiveData<Boolean> getShuffleModeEnabled() {
+        return shuffleModeEnabled;
+    }
+
+    public LiveData<Integer> getRepeatMode() {
+        return repeatMode;
+    }
+
+    public LiveData<Boolean> getStopAfterCurrent() {
+        return stopAfterCurrent;
+    }
+
+    public void toggleShuffleMode() {
+        boolean newValue = !Boolean.TRUE.equals(shuffleModeEnabled.getValue());
+        shuffleModeEnabled.setValue(newValue);
+        if (mediaController != null) {
+            mediaController.setShuffleModeEnabled(newValue);
+        }
+        if (prefs != null) {
+            prefs.edit().putBoolean(KEY_SHUFFLE, newValue).apply();
+        }
+    }
+
+    public void cycleRepeatMode() {
+        // Next Song (Repeat Off/All) -> Stop -> Repeat Current -> Next Song
+        if (Boolean.TRUE.equals(stopAfterCurrent.getValue())) {
+            // Currently on "Stop", move to "Repeat Current"
+            stopAfterCurrent.setValue(false);
+            repeatMode.setValue(Player.REPEAT_MODE_ONE);
+            if (mediaController != null) {
+                mediaController.setRepeatMode(Player.REPEAT_MODE_ONE);
+            }
+            if (prefs != null) {
+                prefs.edit().putBoolean(KEY_STOP_AFTER, false).putInt(KEY_REPEAT, Player.REPEAT_MODE_ONE).apply();
+            }
+        } else if (repeatMode.getValue() != null && repeatMode.getValue() == Player.REPEAT_MODE_ONE) {
+            // Currently on "Repeat Current", move to "Next Song" (Circular)
+            repeatMode.setValue(Player.REPEAT_MODE_ALL);
+            if (mediaController != null) {
+                mediaController.setRepeatMode(Player.REPEAT_MODE_ALL);
+            }
+            if (prefs != null) {
+                prefs.edit().putInt(KEY_REPEAT, Player.REPEAT_MODE_ALL).apply();
+            }
+        } else {
+            // Currently on "Next Song", move to "Stop"
+            stopAfterCurrent.setValue(true);
+            if (prefs != null) {
+                prefs.edit().putBoolean(KEY_STOP_AFTER, true).apply();
+            }
+        }
     }
 
     public PlaylistManager getPlaylistManager() {

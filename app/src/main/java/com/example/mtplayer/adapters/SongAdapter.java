@@ -3,9 +3,13 @@ package com.example.mtplayer.adapters;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
+import android.widget.Filter;
+import android.widget.Filterable;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.mtplayer.databinding.ItemSongBinding;
 import com.example.mtplayer.models.Song;
 
@@ -14,21 +18,32 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder> {
+public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder> implements Filterable {
 
     private List<Song> songs = new ArrayList<>();
+    private List<Song> songsFull = new ArrayList<>();
     private final OnSongClickListener listener;
+    private OnFilterResultsListener filterListener;
 
     public interface OnSongClickListener {
         void onSongClick(Song song);
+    }
+
+    public interface OnFilterResultsListener {
+        void onFilterResults(int count);
     }
 
     public SongAdapter(OnSongClickListener listener) {
         this.listener = listener;
     }
 
+    public void setOnFilterResultsListener(OnFilterResultsListener filterListener) {
+        this.filterListener = filterListener;
+    }
+
     public void setSongs(List<Song> songs) {
-        this.songs = songs;
+        this.songs = new ArrayList<>(songs);
+        this.songsFull = new ArrayList<>(songs);
         notifyDataSetChanged();
     }
 
@@ -51,6 +66,48 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
         return songs.size();
     }
 
+    @Override
+    public Filter getFilter() {
+        return songFilter;
+    }
+
+    private final Filter songFilter = new Filter() {
+        @Override
+        protected FilterResults performFiltering(CharSequence constraint) {
+            List<Song> filteredList = new ArrayList<>();
+
+            if (constraint == null || constraint.length() == 0) {
+                filteredList.addAll(songsFull);
+            } else {
+                String filterPattern = constraint.toString().toLowerCase().trim();
+
+                for (Song item : songsFull) {
+                    if (item.getTitle().toLowerCase().contains(filterPattern) ||
+                        item.getArtist().toLowerCase().contains(filterPattern)) {
+                        filteredList.add(item);
+                    }
+                }
+            }
+
+            FilterResults results = new FilterResults();
+            results.values = filteredList;
+            return results;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        protected void publishResults(CharSequence constraint, FilterResults results) {
+            songs.clear();
+            if (results.values != null) {
+                songs.addAll((List<Song>) results.values);
+            }
+            notifyDataSetChanged();
+            if (filterListener != null) {
+                filterListener.onFilterResults(getItemCount());
+            }
+        }
+    };
+
     static class SongViewHolder extends RecyclerView.ViewHolder {
         private final ItemSongBinding binding;
 
@@ -64,8 +121,11 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
             binding.tvArtist.setText(song.getArtist());
             binding.tvDuration.setText(formatDuration(song.getDuration()));
             
-            // Note: Album art loading will be handled in a later step if needed,
-            // or we can use a placeholder for now.
+            Glide.with(binding.ivAlbumArt.getContext())
+                    .load(song.getAlbumArtUri())
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_gallery)
+                    .into(binding.ivAlbumArt);
             
             binding.getRoot().setOnClickListener(v -> listener.onSongClick(song));
         }

@@ -1,6 +1,10 @@
 <resources>
     <string name="app_name">MTPlayer</string>
     <string name="action_settings">Settings</string>
+    <string name="menu_search">Search</string>
+    <string name="no_songs_found">No songs found</string>
+    <string name="shuffle_linear">Shuffle or Linear</string>
+    <string name="repeat_mode">Repeat mode</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">First Fragment</string>
     <string name="second_fragment_label">Second Fragment</string>

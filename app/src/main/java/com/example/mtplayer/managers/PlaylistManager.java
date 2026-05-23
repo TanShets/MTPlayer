@@ -43,12 +43,7 @@ public class PlaylistManager {
         
         currentIndex++;
         if (currentIndex >= currentPlaylist.size()) {
-            if (isRepeatMode) {
-                currentIndex = 0;
-            } else {
-                currentIndex = currentPlaylist.size() - 1;
-                return null; // Or stop playback
-            }
+            currentIndex = 0;
         }
         return currentPlaylist.get(currentIndex);
     }
@@ -58,11 +53,7 @@ public class PlaylistManager {
 
         currentIndex--;
         if (currentIndex < 0) {
-            if (isRepeatMode) {
-                currentIndex = currentPlaylist.size() - 1;
-            } else {
-                currentIndex = 0;
-            }
+            currentIndex = currentPlaylist.size() - 1;
         }
         return currentPlaylist.get(currentIndex);
     }

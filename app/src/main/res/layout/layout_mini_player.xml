@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mini_player_container"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:background="?attr/colorSurface"
+    android:elevation="8dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:visibility="gone"
+    tools:visibility="visible">
+
+    <View
+        android:id="@+id/mini_player_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?android:attr/dividerVertical"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/iv_mini_album_art"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:srcCompat="@tools:sample/avatars" />
+
+    <TextView
+        android:id="@+id/tv_mini_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
+        app:layout_constraintBottom_toTopOf="@+id/tv_mini_artist"
+        app:layout_constraintEnd_toStartOf="@+id/btn_mini_play_pause"
+        app:layout_constraintStart_toEndOf="@+id/iv_mini_album_art"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="Song Title" />
+
+    <TextView
+        android:id="@+id/tv_mini_artist"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btn_mini_play_pause"
+        app:layout_constraintStart_toEndOf="@+id/iv_mini_album_art"
+        app:layout_constraintTop_toBottomOf="@+id/tv_mini_title"
+        tools:text="Artist Name" />
+
+    <ImageButton
+        android:id="@+id/btn_mini_prev"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Previous"
+        android:src="@android:drawable/ic_media_previous"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btn_mini_play_pause"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btn_mini_play_pause"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="4dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Play or Pause"
+        android:scaleType="fitCenter"
+        android:src="@android:drawable/ic_media_play"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btn_mini_next"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btn_mini_next"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Next"
+        android:src="@android:drawable/ic_media_next"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
