@@ -30,7 +30,9 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:max="150"
-            android:progress="50" />
+            android:progress="50"
+            android:progressTint="?attr/colorPrimary"
+            android:thumbTint="?attr/colorPrimary" />
 
         <TextView
             android:id="@+id/tv_pitch_label"
@@ -46,23 +48,10 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:max="150"
-            android:progress="50" />
+            android:progress="50"
+            android:progressTint="?attr/colorPrimary"
+            android:thumbTint="?attr/colorPrimary" />
     </LinearLayout>
-
-    <ImageView
-        android:id="@+id/iv_player_album_art"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="16dp"
-        android:scaleType="centerCrop"
-        android:contentDescription="@string/lorem_ipsum"
-        app:layout_constraintBottom_toTopOf="@+id/tv_player_title"
-        app:layout_constraintDimensionRatio="1:1"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ll_pitch_tempo"
-        tools:srcCompat="@tools:sample/avatars" />
 
     <com.example.mtplayer.ui.VisualizerView
         android:id="@+id/visualizer_view"
@@ -70,32 +59,58 @@
         android:layout_height="0dp"
         android:layout_marginStart="-24dp"
         android:layout_marginEnd="-24dp"
-        app:layout_constraintBottom_toTopOf="@+id/tv_player_title"
+        android:layout_marginTop="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/ll_song_info"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ll_pitch_tempo" />
 
-    <TextView
-        android:id="@+id/tv_player_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/tv_player_artist"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:text="Song Title" />
-
-    <TextView
-        android:id="@+id/tv_player_artist"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/ll_song_info"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toTopOf="@+id/sb_player_progress"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:text="Artist Name" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_player_album_art"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_marginEnd="16dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/album_art"
+            tools:srcCompat="@tools:sample/avatars" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_player_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="1"
+                tools:text="Song Title" />
+
+            <TextView
+                android:id="@+id/tv_player_artist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
+                android:ellipsize="end"
+                android:maxLines="1"
+                tools:text="Artist Name" />
+        </LinearLayout>
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tv_current_time"
@@ -112,6 +127,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="32dp"
+        android:progressTint="?attr/colorPrimary"
+        android:thumbTint="?attr/colorPrimary"
         app:layout_constraintBottom_toTopOf="@+id/ll_player_controls"
         app:layout_constraintEnd_toStartOf="@+id/tv_total_time"
         app:layout_constraintStart_toEndOf="@+id/tv_current_time" />
@@ -141,7 +158,9 @@
             android:id="@+id/btn_prev"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_rounded"
+            app:backgroundTint="?attr/colorPrimary"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Previous"
             android:src="@android:drawable/ic_media_previous" />
 
@@ -150,7 +169,9 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginHorizontal="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_rounded"
+            app:backgroundTint="?attr/colorPrimary"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Rewind 5s"
             android:src="@android:drawable/ic_media_rew" />
 
@@ -159,9 +180,12 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:layout_marginHorizontal="16dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_rounded"
+            app:backgroundTint="?attr/colorPrimary"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Play or Pause"
-            android:scaleType="fitCenter"
+            android:scaleType="centerInside"
+            android:padding="16dp"
             android:src="@android:drawable/ic_media_play" />
 
         <ImageButton
@@ -169,7 +193,9 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginHorizontal="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_rounded"
+            app:backgroundTint="?attr/colorPrimary"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Forward 5s"
             android:src="@android:drawable/ic_media_ff" />
 
@@ -177,7 +203,9 @@
             android:id="@+id/btn_next"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/btn_rounded"
+            app:backgroundTint="?attr/colorPrimary"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Next"
             android:src="@android:drawable/ic_media_next" />
 
@@ -189,12 +217,13 @@
         android:layout_height="56dp"
         android:layout_marginStart="24dp"
         android:layout_marginBottom="16dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
+        android:background="@drawable/btn_rounded"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="?attr/colorOnPrimary"
         android:contentDescription="@string/shuffle_linear"
-        android:padding="8dp"
+        android:padding="12dp"
         android:scaleType="fitCenter"
         android:src="@android:drawable/ic_menu_sort_alphabetically"
-        app:tint="?attr/colorAccent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -204,12 +233,13 @@
         android:layout_height="56dp"
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="16dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
+        android:background="@drawable/btn_rounded"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="?attr/colorOnPrimary"
         android:contentDescription="@string/repeat_mode"
-        android:padding="8dp"
+        android:padding="12dp"
         android:scaleType="fitCenter"
         android:src="@android:drawable/stat_notify_sync"
-        app:tint="?attr/colorAccent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

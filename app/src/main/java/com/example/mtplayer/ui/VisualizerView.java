@@ -14,8 +14,8 @@ import androidx.annotation.Nullable;
 public class VisualizerView extends View {
     private byte[] bytes;
     private final Paint paint = new Paint();
-    private int backgroundColor = Color.parseColor("#F5F5F5");
-    private int playedColor = Color.parseColor("#6200EE");
+    private int backgroundColor = Color.TRANSPARENT;
+    private int playedColor = Color.parseColor("#0096FF");
     private int remainingColor = Color.parseColor("#BDBDBD");
     private float progress = 0f; // 0.0 to 1.0
     private OnSeekBarChangeListener listener;
@@ -132,7 +132,7 @@ public class VisualizerView extends View {
         }
         
         // Draw a thin progress indicator line
-        paint.setColor(Color.RED);
+        paint.setColor(Color.WHITE);
         paint.setStrokeWidth(3f);
         canvas.drawLine(width * progress, 0, width * progress, height, paint);
     }

@@ -38,6 +38,11 @@ import com.bumptech.glide.Glide;
 import android.view.Menu;
 import android.view.MenuItem;
 import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.app.AppCompatDelegate;
+import android.content.SharedPreferences;
+import android.database.ContentObserver;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private SongViewModel songViewModel;
     private static final String TAG = "MainActivity";
+    private ContentObserver songObserver;
 
     private final ActivityResultLauncher<String[]> requestPermissionsLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -69,6 +75,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SharedPreferences prefs = getSharedPreferences("settings", MODE_PRIVATE);
+        boolean isDarkMode = prefs.getBoolean("dark_mode", false);
+        if (isDarkMode) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+        } else {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        }
+
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
 
@@ -97,6 +111,30 @@ public class MainActivity extends AppCompatActivity {
         setupMiniPlayer(navController);
 
         checkPermissionsAndLoadSongs();
+        setupContentObserver();
+    }
+
+    private void setupContentObserver() {
+        songObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+            @Override
+            public void onChange(boolean selfChange) {
+                Log.d(TAG, "MediaStore changed, reloading songs...");
+                loadSongs();
+            }
+        };
+        getContentResolver().registerContentObserver(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                true,
+                songObserver
+        );
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (songObserver != null) {
+            getContentResolver().unregisterContentObserver(songObserver);
+        }
     }
 
     private void setupMiniPlayer(NavController navController) {
@@ -255,6 +293,12 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
 
+        MenuItem darkModeItem = menu.findItem(R.id.action_dark_mode);
+        if (darkModeItem != null) {
+            SharedPreferences prefs = getSharedPreferences("settings", MODE_PRIVATE);
+            darkModeItem.setChecked(prefs.getBoolean("dark_mode", false));
+        }
+
         MenuItem searchItem = menu.findItem(R.id.action_search);
         if (searchItem != null) {
             SearchView searchView = (SearchView) searchItem.getActionView();
@@ -286,6 +330,20 @@ public class MainActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            return true;
+        }
+
+        if (id == R.id.action_dark_mode) {
+            boolean isDarkMode = !item.isChecked();
+            item.setChecked(isDarkMode);
+            SharedPreferences prefs = getSharedPreferences("settings", MODE_PRIVATE);
+            prefs.edit().putBoolean("dark_mode", isDarkMode).apply();
+            
+            if (isDarkMode) {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+            } else {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+            }
             return true;
         }
 
