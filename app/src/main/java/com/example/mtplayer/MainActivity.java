@@ -1,32 +1,60 @@
 package com.example.mtplayer;
 
+import android.Manifest;
+import android.content.ContentUris;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 
+import com.example.mtplayer.models.Song;
 import com.google.android.material.snackbar.Snackbar;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
 
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.mtplayer.databinding.ActivityMainBinding;
+import com.example.mtplayer.viewmodels.SongViewModel;
 
 import android.view.Menu;
 import android.view.MenuItem;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
+    private SongViewModel songViewModel;
+    private static final String TAG = "MainActivity";
+
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    loadSongs();
+                } else {
+                    Snackbar.make(binding.getRoot(), "Permission denied to read audio files", Snackbar.LENGTH_LONG).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,6 +64,9 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        songViewModel = new ViewModelProvider(this).get(SongViewModel.class);
+        songViewModel.initController(this);
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.main, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -43,18 +74,123 @@ public class MainActivity extends AppCompatActivity {
         });
         setSupportActionBar(binding.toolbar);
 
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment == null) {
+            throw new IllegalStateException("NavHostFragment not found. Make sure the layout contains a NavHostFragment with id nav_host_fragment_content_main");
+        }
+        NavController navController = navHostFragment.getNavController();
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
         binding.fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAnchorView(R.id.fab)
-                        .setAction("Action", null).show();
+                checkPermissionsAndLoadSongs();
             }
         });
+
+        checkPermissionsAndLoadSongs();
+    }
+
+    private void checkPermissionsAndLoadSongs() {
+        List<String> permissions = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO);
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        } else {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+        permissions.add(Manifest.permission.RECORD_AUDIO);
+
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        for (String p : permissions) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                listPermissionsNeeded.add(p);
+            }
+        }
+
+        if (!listPermissionsNeeded.isEmpty()) {
+            requestPermissionLauncher.launch(listPermissionsNeeded.get(0));
+            // Note: Simplification here, ideally request all at once with RequestMultiplePermissions
+        } else {
+            loadSongs();
+        }
+    }
+
+    private void loadSongs() {
+        Log.d(TAG, "Starting loadSongs...");
+        
+        new Thread(() -> {
+            Uri collection;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL);
+            } else {
+                collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+            }
+
+            String[] projection = new String[] {
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.DISPLAY_NAME,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.ALBUM,
+                    MediaStore.Audio.Media.DURATION,
+                    MediaStore.Audio.Media.MIME_TYPE
+            };
+
+            String selection = MediaStore.Audio.Media.IS_MUSIC + " != 0";
+            String sortOrder = MediaStore.Audio.Media.TITLE + " ASC";
+
+            List<Song> songList = new ArrayList<>();
+
+            try (Cursor cursor = getContentResolver().query(
+                    collection,
+                    projection,
+                    selection,
+                    null,
+                    sortOrder
+            )) {
+                if (cursor != null) {
+                    Log.d(TAG, "Cursor count: " + cursor.getCount());
+                    if (cursor.moveToFirst()) {
+                        int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID);
+                        int titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE);
+                        int artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
+                        int albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
+                        int durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
+
+                        do {
+                            long id = cursor.getLong(idColumn);
+                            String title = cursor.getString(titleColumn);
+                            String artist = cursor.getString(artistColumn);
+                            String album = cursor.getString(albumColumn);
+                            long duration = cursor.getLong(durationColumn);
+
+                            Uri contentUri = ContentUris.withAppendedId(
+                                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
+
+                            Song song = new Song(id, title, artist, album, duration, contentUri);
+                            songList.add(song);
+                        } while (cursor.moveToNext());
+                    }
+                } else {
+                    Log.e(TAG, "Cursor is null");
+                }
+                
+                final List<Song> finalSongList = songList;
+                runOnUiThread(() -> {
+                    Log.d(TAG, "Updating ViewModel with " + finalSongList.size() + " songs");
+                    songViewModel.setSongs(finalSongList);
+                    if (finalSongList.isEmpty()) {
+                        Snackbar.make(binding.getRoot(), "No music files found", Snackbar.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading songs", e);
+                runOnUiThread(() -> Snackbar.make(binding.getRoot(), "Error loading songs: " + e.getMessage(), Snackbar.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     @Override
@@ -81,7 +217,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment == null) {
+            throw new IllegalStateException("NavHostFragment not found. Make sure the layout contains a NavHostFragment with id nav_host_fragment_content_main");
+        }
+        NavController navController = navHostFragment.getNavController();
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
     }
