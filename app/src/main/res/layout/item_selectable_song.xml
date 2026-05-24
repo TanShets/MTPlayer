@@ -27,7 +27,7 @@
         android:maxLines="1"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
         app:layout_constraintBottom_toTopOf="@+id/tv_artist"
-        app:layout_constraintEnd_toStartOf="@+id/tv_duration"
+        app:layout_constraintEnd_toStartOf="@+id/cb_select"
         app:layout_constraintStart_toEndOf="@+id/iv_album_art"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed"
@@ -43,31 +43,19 @@
         android:maxLines="1"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/tv_duration"
+        app:layout_constraintEnd_toStartOf="@+id/cb_select"
         app:layout_constraintStart_toEndOf="@+id/iv_album_art"
         app:layout_constraintTop_toBottomOf="@+id/tv_title"
         tools:text="Artist Name" />
 
-    <TextView
-        android:id="@+id/tv_duration"
+    <CheckBox
+        android:id="@+id/cb_select"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btn_more"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="03:45" />
-
-    <ImageButton
-        android:id="@+id/btn_more"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_more_vert"
+        android:clickable="false"
+        android:focusable="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:contentDescription="@string/more_options" />
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

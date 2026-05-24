@@ -139,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupMiniPlayer(NavController navController) {
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-            if (destination.getId() == R.id.SecondFragment) {
+            if (destination.getId() == R.id.PlayerFragment) {
                 binding.miniPlayer.miniPlayerContainer.setVisibility(View.GONE);
             } else {
                 updateMiniPlayerVisibility();
@@ -169,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
         binding.miniPlayer.btnMiniNext.setOnClickListener(v -> songViewModel.playNext());
         
         binding.miniPlayer.miniPlayerContainer.setOnClickListener(v -> {
-            navController.navigate(R.id.SecondFragment);
+            navController.navigate(R.id.PlayerFragment);
         });
     }
 
@@ -179,7 +179,7 @@ public class MainActivity extends AppCompatActivity {
         if (navHostFragment != null) {
             NavController navController = navHostFragment.getNavController();
             boolean showMiniPlayer = navController.getCurrentDestination() != null && 
-                navController.getCurrentDestination().getId() != R.id.SecondFragment &&
+                navController.getCurrentDestination().getId() != R.id.PlayerFragment &&
                 songViewModel.getSelectedSong().getValue() != null;
             
             binding.miniPlayer.miniPlayerContainer.setVisibility(showMiniPlayer ? View.VISIBLE : View.GONE);
