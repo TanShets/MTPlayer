@@ -34,4 +34,20 @@
             android:id="@+id/action_PlayerFragment_to_HomeFragment"
             app:destination="@id/HomeFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/PlaylistDetailFragment"
+        android:name="com.example.mtplayer.PlaylistDetailFragment"
+        android:label="{playlist_name}"
+        tools:layout="@layout/fragment_playlist_detail">
+        <argument
+            android:name="playlist_id"
+            app:argType="integer" />
+        <argument
+            android:name="playlist_name"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_PlaylistDetailFragment_to_PlayerFragment"
+            app:destination="@id/PlayerFragment" />
+    </fragment>
 </navigation>

@@ -14,6 +14,9 @@ import com.example.mtplayer.adapters.PlaylistAdapter;
 import com.example.mtplayer.database.AppDatabase;
 import com.example.mtplayer.database.Playlist;
 import com.example.mtplayer.databinding.FragmentPlaylistsBinding;
+import com.example.mtplayer.database.Playlist;
+
+import androidx.navigation.fragment.NavHostFragment;
 import java.util.List;
 
 public class PlaylistsFragment extends Fragment {
@@ -49,7 +52,16 @@ public class PlaylistsFragment extends Fragment {
         adapter = new PlaylistAdapter(new PlaylistAdapter.OnPlaylistInteractionListener() {
             @Override
             public void onPlaylistClick(Playlist playlist) {
-                // TODO: Step 6 - Play the playlist
+                onPlaylistView(playlist);
+            }
+
+            @Override
+            public void onPlaylistView(Playlist playlist) {
+                Bundle args = new Bundle();
+                args.putInt(PlaylistDetailFragment.ARG_PLAYLIST_ID, playlist.getId());
+                args.putString(PlaylistDetailFragment.ARG_PLAYLIST_NAME, playlist.getName());
+                NavHostFragment.findNavController(PlaylistsFragment.this)
+                        .navigate(R.id.PlaylistDetailFragment, args);
             }
 
             @Override

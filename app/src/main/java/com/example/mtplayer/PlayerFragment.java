@@ -238,6 +238,19 @@ public class PlayerFragment extends Fragment {
         viewModel.getRepeatMode().observe(getViewLifecycleOwner(), mode -> updateRepeatUI());
 
         viewModel.getStopAfterCurrent().observe(getViewLifecycleOwner(), stop -> updateRepeatUI());
+
+        viewModel.getPlaybackSource().observe(getViewLifecycleOwner(), source -> {
+            if (source != null && getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
+                androidx.appcompat.app.ActionBar actionBar = ((androidx.appcompat.app.AppCompatActivity) getActivity()).getSupportActionBar();
+                if (actionBar != null) {
+                    if ("All Songs".equals(source)) {
+                        actionBar.setTitle("All Songs");
+                    } else {
+                        actionBar.setTitle("Playing from: " + source);
+                    }
+                }
+            }
+        });
     }
 
     private void showRepeatModeToast() {

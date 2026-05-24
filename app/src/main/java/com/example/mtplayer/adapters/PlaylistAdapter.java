@@ -18,6 +18,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.ViewHo
 
     public interface OnPlaylistInteractionListener {
         void onPlaylistClick(Playlist playlist);
+        void onPlaylistView(Playlist playlist);
         void onPlaylistEdit(Playlist playlist);
         void onPlaylistDelete(Playlist playlist);
     }
@@ -68,7 +69,10 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.ViewHo
                 
                 popup.setOnMenuItemClickListener(item -> {
                     int itemId = item.getItemId();
-                    if (itemId == R.id.action_edit) {
+                    if (itemId == R.id.action_view) {
+                        listener.onPlaylistView(playlist);
+                        return true;
+                    } else if (itemId == R.id.action_edit) {
                         listener.onPlaylistEdit(playlist);
                         return true;
                     } else if (itemId == R.id.action_delete) {

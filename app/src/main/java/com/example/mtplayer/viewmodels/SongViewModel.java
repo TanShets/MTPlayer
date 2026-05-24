@@ -40,7 +40,9 @@ public class SongViewModel extends ViewModel {
     private final MutableLiveData<Boolean> shuffleModeEnabled = new MutableLiveData<>(false);
     private final MutableLiveData<Integer> repeatMode = new MutableLiveData<>(Player.REPEAT_MODE_ALL);
     private final MutableLiveData<Boolean> stopAfterCurrent = new MutableLiveData<>(false);
+    private final MutableLiveData<String> playbackSource = new MutableLiveData<>("All Songs");
     
+    private List<Song> allSongs = new ArrayList<>();
     private SharedPreferences prefs;
     private static final String PREFS_NAME = "MTPlayerPrefs";
     private static final String KEY_SHUFFLE = "shuffle_mode";
@@ -147,8 +149,35 @@ public class SongViewModel extends ViewModel {
     }
 
     public void setSongs(List<Song> songList) {
+        this.allSongs = new ArrayList<>(songList);
         songs.setValue(songList);
         playlistManager.setPlaylist(songList);
+    }
+
+    public void playQueue(List<Song> newQueue, int startIndex, String sourceName) {
+        if (mediaController != null && newQueue != null && !newQueue.isEmpty()) {
+            playbackSource.setValue(sourceName);
+            playlistManager.setPlaylist(newQueue);
+            
+            List<MediaItem> mediaItems = new ArrayList<>();
+            for (Song s : newQueue) {
+                MediaMetadata metadata = new MediaMetadata.Builder()
+                        .setTitle(s.getTitle())
+                        .setArtist(s.getArtist())
+                        .setAlbumTitle(s.getAlbum())
+                        .setArtworkUri(s.getAlbumArtUri())
+                        .build();
+
+                mediaItems.add(new MediaItem.Builder()
+                        .setUri(s.getUri())
+                        .setMediaId(String.valueOf(s.getId()))
+                        .setMediaMetadata(metadata)
+                        .build());
+            }
+            mediaController.setMediaItems(mediaItems, startIndex, 0);
+            mediaController.prepare();
+            mediaController.play();
+        }
     }
 
     public LiveData<List<Song>> getSongs() {
@@ -157,35 +186,8 @@ public class SongViewModel extends ViewModel {
 
     public void selectSong(Song song) {
         if (mediaController != null) {
-            List<Song> songList = songs.getValue();
-            if (songList != null) {
-                int index = songList.indexOf(song);
-                if (index != -1) {
-                    if (mediaController.getMediaItemCount() != songList.size()) {
-                        // Populate the playlist if not already done
-                        List<MediaItem> mediaItems = new ArrayList<>();
-                        for (Song s : songList) {
-                            MediaMetadata metadata = new MediaMetadata.Builder()
-                                    .setTitle(s.getTitle())
-                                    .setArtist(s.getArtist())
-                                    .setAlbumTitle(s.getAlbum())
-                                    .setArtworkUri(s.getAlbumArtUri())
-                                    .build();
-
-                            mediaItems.add(new MediaItem.Builder()
-                                    .setUri(s.getUri())
-                                    .setMediaId(String.valueOf(s.getId()))
-                                    .setMediaMetadata(metadata)
-                                    .build());
-                        }
-                        mediaController.setMediaItems(mediaItems, index, 0);
-                    } else {
-                        mediaController.seekTo(index, 0);
-                    }
-                    mediaController.prepare();
-                    mediaController.play();
-                }
-            }
+            // Constraint: Reset to all songs when selected from "All Songs" tab
+            playQueue(allSongs, allSongs.indexOf(song), "All Songs");
         }
     }
 
@@ -298,6 +300,10 @@ public class SongViewModel extends ViewModel {
 
     public LiveData<Boolean> getStopAfterCurrent() {
         return stopAfterCurrent;
+    }
+
+    public LiveData<String> getPlaybackSource() {
+        return playbackSource;
     }
 
     public void toggleShuffleMode() {
