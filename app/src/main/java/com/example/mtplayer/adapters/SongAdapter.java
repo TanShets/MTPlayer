@@ -27,6 +27,7 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
 
     public interface OnSongClickListener {
         void onSongClick(Song song);
+        void onMoreClick(Song song, android.view.View view);
     }
 
     public interface OnFilterResultsListener {
@@ -132,6 +133,7 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
                     .into(binding.ivAlbumArt);
             
             binding.getRoot().setOnClickListener(v -> listener.onSongClick(song));
+            binding.btnMore.setOnClickListener(v -> listener.onMoreClick(song, v));
         }
 
         private String formatDuration(long duration) {

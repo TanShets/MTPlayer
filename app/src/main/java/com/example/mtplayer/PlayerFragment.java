@@ -16,15 +16,15 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.media3.common.Player;
 
 import com.bumptech.glide.Glide;
-import com.example.mtplayer.databinding.FragmentSecondBinding;
+import com.example.mtplayer.databinding.FragmentPlayerBinding;
 import com.example.mtplayer.viewmodels.SongViewModel;
 
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-public class SecondFragment extends Fragment {
+public class PlayerFragment extends Fragment {
 
-    private FragmentSecondBinding binding;
+    private FragmentPlayerBinding binding;
     private SongViewModel viewModel;
     private boolean isUserSeeking = false;
     private Visualizer visualizer;
@@ -35,7 +35,7 @@ public class SecondFragment extends Fragment {
             @NonNull LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState
     ) {
-        binding = FragmentSecondBinding.inflate(inflater, container, false);
+        binding = FragmentPlayerBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
 
@@ -79,7 +79,7 @@ public class SecondFragment extends Fragment {
             Boolean isPlaying = viewModel.getIsPlaying().getValue();
             visualizer.setEnabled(isPlaying != null && isPlaying);
         } catch (Exception e) {
-            Log.e("SecondFragment", "Error initializing visualizer", e);
+            Log.e("PlayerFragment", "Error initializing visualizer", e);
         }
     }
 
@@ -182,7 +182,7 @@ public class SecondFragment extends Fragment {
                     try {
                         visualizer.setEnabled(isPlaying);
                     } catch (IllegalStateException e) {
-                        Log.e("SecondFragment", "Error toggling visualizer", e);
+                        Log.e("PlayerFragment", "Error toggling visualizer", e);
                     }
                 }
             }
@@ -238,6 +238,19 @@ public class SecondFragment extends Fragment {
         viewModel.getRepeatMode().observe(getViewLifecycleOwner(), mode -> updateRepeatUI());
 
         viewModel.getStopAfterCurrent().observe(getViewLifecycleOwner(), stop -> updateRepeatUI());
+
+        viewModel.getPlaybackSource().observe(getViewLifecycleOwner(), source -> {
+            if (source != null && getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
+                androidx.appcompat.app.ActionBar actionBar = ((androidx.appcompat.app.AppCompatActivity) getActivity()).getSupportActionBar();
+                if (actionBar != null) {
+                    if ("All Songs".equals(source)) {
+                        actionBar.setTitle("All Songs");
+                    } else {
+                        actionBar.setTitle("Playing from: " + source);
+                    }
+                }
+            }
+        });
     }
 
     private void showRepeatModeToast() {

@@ -15,15 +15,25 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.mtplayer.adapters.SongAdapter;
-import com.example.mtplayer.databinding.FragmentFirstBinding;
+import com.example.mtplayer.database.AppDatabase;
+import com.example.mtplayer.database.Playlist;
+import com.example.mtplayer.database.PlaylistSong;
+import com.example.mtplayer.databinding.FragmentSongsBinding;
 import com.example.mtplayer.models.Song;
 import com.example.mtplayer.viewmodels.SongViewModel;
 
+import android.content.Intent;
+import android.widget.PopupMenu;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
+import androidx.lifecycle.LiveData;
+import java.util.ArrayList;
+
 import java.util.List;
 
-public class FirstFragment extends Fragment {
+public class SongsFragment extends Fragment {
 
-    private FragmentFirstBinding binding;
+    private FragmentSongsBinding binding;
     private SongViewModel viewModel;
     private SongAdapter adapter;
 
@@ -32,7 +42,7 @@ public class FirstFragment extends Fragment {
             @NonNull LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState
     ) {
-        binding = FragmentFirstBinding.inflate(inflater, container, false);
+        binding = FragmentSongsBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
 
@@ -40,10 +50,18 @@ public class FirstFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         viewModel = new ViewModelProvider(requireActivity()).get(SongViewModel.class);
-        adapter = new SongAdapter(song -> {
-            viewModel.selectSong(song);
-            NavHostFragment.findNavController(FirstFragment.this)
-                    .navigate(R.id.action_FirstFragment_to_SecondFragment);
+        adapter = new SongAdapter(new SongAdapter.OnSongClickListener() {
+            @Override
+            public void onSongClick(Song song) {
+                viewModel.selectSong(song);
+                NavHostFragment.findNavController(SongsFragment.this)
+                        .navigate(R.id.PlayerFragment);
+            }
+
+            @Override
+            public void onMoreClick(Song song, View view) {
+                showSongMenu(song, view);
+            }
         });
 
         binding.rvSongs.setAdapter(adapter);
@@ -73,6 +91,65 @@ public class FirstFragment extends Fragment {
 
         setupSideIndex();
         setupRecyclerViewScrollListener();
+    }
+
+    private void showSongMenu(Song song, View view) {
+        PopupMenu popup = new PopupMenu(requireContext(), view);
+        popup.getMenuInflater().inflate(R.menu.menu_song_item, popup.getMenu());
+        popup.setOnMenuItemClickListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_play_single) {
+                viewModel.selectSong(song);
+                NavHostFragment.findNavController(SongsFragment.this)
+                        .navigate(R.id.PlayerFragment);
+                return true;
+            } else if (itemId == R.id.action_add_to_playlist) {
+                showAddToPlaylistDialog(song);
+                return true;
+            }
+            return false;
+        });
+        popup.show();
+    }
+
+    private void showAddToPlaylistDialog(Song song) {
+        AppDatabase db = AppDatabase.getDatabase(requireContext());
+        LiveData<List<Playlist>> playlistsLiveData = db.playlistDao().getAllPlaylists();
+        playlistsLiveData.observe(getViewLifecycleOwner(), new androidx.lifecycle.Observer<List<Playlist>>() {
+            @Override
+            public void onChanged(List<Playlist> playlists) {
+                playlistsLiveData.removeObserver(this);
+                if (playlists == null) return;
+
+                List<String> playlistNames = new ArrayList<>();
+                for (Playlist p : playlists) {
+                    playlistNames.add(p.getName());
+                }
+                playlistNames.add(getString(R.string.create_new_playlist));
+
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.select_playlist)
+                        .setItems(playlistNames.toArray(new String[0]), (dialog, which) -> {
+                            if (which == playlists.size()) {
+                                // Create New Playlist
+                                Intent intent = new Intent(requireContext(), PlaylistEditorActivity.class);
+                                startActivity(intent);
+                            } else {
+                                // Add to existing playlist
+                                Playlist selectedPlaylist = playlists.get(which);
+                                new Thread(() -> {
+                                    db.playlistDao().insertPlaylistSong(new PlaylistSong(selectedPlaylist.getId(), song.getId()));
+                                    if (isAdded()) {
+                                        requireActivity().runOnUiThread(() -> 
+                                            Toast.makeText(requireContext(), "Added to " + selectedPlaylist.getName(), Toast.LENGTH_SHORT).show()
+                                        );
+                                    }
+                                }).start();
+                            }
+                        })
+                        .show();
+            }
+        });
     }
 
     private void setupRecyclerViewScrollListener() {

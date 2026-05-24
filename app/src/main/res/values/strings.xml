@@ -6,12 +6,22 @@
     <string name="shuffle_linear">Shuffle or Linear</string>
     <string name="repeat_mode">Repeat mode</string>
     <!-- Strings used for fragments for navigation -->
-    <string name="first_fragment_label">First Fragment</string>
-    <string name="second_fragment_label">Second Fragment</string>
+    <string name="first_fragment_label">All Songs</string>
+    <string name="second_fragment_label">Playing from All Songs</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="action_dark_mode">Dark Mode</string>
     <string name="album_art">Album Art</string>
+    <string name="more_options">More options</string>
+    <string name="action_play">Play</string>
+    <string name="action_add_to_playlist">Add to Playlist</string>
+    <string name="action_view">View</string>
+    <string name="create_new_playlist">+ Create New Playlist</string>
+    <string name="select_playlist">Select Playlist</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="delete_playlist_title">Delete Playlist</string>
+    <string name="delete_playlist_message">Are you sure you want to delete \'%1$s\'?</string>
 
     <string name="lorem_ipsum">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris

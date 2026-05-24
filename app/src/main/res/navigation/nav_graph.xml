@@ -3,26 +3,51 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/FirstFragment">
+    app:startDestination="@id/HomeFragment">
 
     <fragment
-        android:id="@+id/FirstFragment"
-        android:name="com.example.mtplayer.FirstFragment"
-        android:label="@string/first_fragment_label"
-        tools:layout="@layout/fragment_first">
-
+        android:id="@+id/HomeFragment"
+        android:name="com.example.mtplayer.HomeFragment"
+        android:label="MTPlayer"
+        tools:layout="@layout/fragment_home">
         <action
-            android:id="@+id/action_FirstFragment_to_SecondFragment"
-            app:destination="@id/SecondFragment" />
+            android:id="@+id/action_HomeFragment_to_PlayerFragment"
+            app:destination="@id/PlayerFragment" />
     </fragment>
-    <fragment
-        android:id="@+id/SecondFragment"
-        android:name="com.example.mtplayer.SecondFragment"
-        android:label="@string/second_fragment_label"
-        tools:layout="@layout/fragment_second">
 
+    <fragment
+        android:id="@+id/SongsFragment"
+        android:name="com.example.mtplayer.SongsFragment"
+        android:label="@string/first_fragment_label"
+        tools:layout="@layout/fragment_songs">
         <action
-            android:id="@+id/action_SecondFragment_to_FirstFragment"
-            app:destination="@id/FirstFragment" />
+            android:id="@+id/action_SongsFragment_to_PlayerFragment"
+            app:destination="@id/PlayerFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/PlayerFragment"
+        android:name="com.example.mtplayer.PlayerFragment"
+        android:label="@string/second_fragment_label"
+        tools:layout="@layout/fragment_player">
+        <action
+            android:id="@+id/action_PlayerFragment_to_HomeFragment"
+            app:destination="@id/HomeFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/PlaylistDetailFragment"
+        android:name="com.example.mtplayer.PlaylistDetailFragment"
+        android:label="{playlist_name}"
+        tools:layout="@layout/fragment_playlist_detail">
+        <argument
+            android:name="playlist_id"
+            app:argType="integer" />
+        <argument
+            android:name="playlist_name"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_PlaylistDetailFragment_to_PlayerFragment"
+            app:destination="@id/PlayerFragment" />
     </fragment>
 </navigation>

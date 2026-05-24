@@ -30,6 +30,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PlaylistEditorActivity"
+            android:exported="false"
+            android:label="Playlist Editor"
+            android:theme="@style/Theme.MTPlayer" />
+
         <service
             android:name=".services.PlayerService"
             android:exported="true"
