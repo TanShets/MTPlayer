@@ -1,20 +1,31 @@
 package com.example.mtplayer.services;
 
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ForwardingPlayer;
+import androidx.media3.common.Player;
+import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
-import androidx.media3.common.Player;
-import android.util.Log;
 
 import com.example.mtplayer.MainActivity;
+
+import java.util.ArrayList;
 
 public class PlayerService extends MediaSessionService {
     private ExoPlayer player;
@@ -29,8 +40,36 @@ public class PlayerService extends MediaSessionService {
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .build();
 
-        player = new ExoPlayer.Builder(this)
-                .setAudioAttributes(audioAttributes, true) // handles audio focus
+        // Heavier processing factory: Overrides the audio renderer to use a custom high-fidelity sink
+        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this) {
+            @Override
+            protected void buildAudioRenderers(
+                    Context context,
+                    int extensionRendererMode,
+                    MediaCodecSelector mediaCodecSelector,
+                    boolean enableDecoderFallback,
+                    AudioSink audioSink,
+                    Handler eventHandler,
+                    AudioRendererEventListener eventListener,
+                    ArrayList<Renderer> out) {
+                
+                // We inject a custom Sonic processor that oversamples to 96kHz to reduce aliasing
+                SonicAudioProcessor highQualityProcessor = new SonicAudioProcessor();
+                highQualityProcessor.setOutputSampleRateHz(96000);
+
+                AudioSink highQualitySink = new DefaultAudioSink.Builder(context)
+                        .setAudioProcessorChain(new DefaultAudioSink.DefaultAudioProcessorChain(highQualityProcessor))
+                        .setEnableFloatOutput(true) // 32-bit float precision
+                        .setEnableAudioTrackPlaybackParams(true) // Use hardware-optimized resampler on top of our oversampling
+                        .build();
+
+                super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, 
+                        enableDecoderFallback, highQualitySink, eventHandler, eventListener, out);
+            }
+        };
+
+        player = new ExoPlayer.Builder(this, renderersFactory)
+                .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .build();
         player.setRepeatMode(ExoPlayer.REPEAT_MODE_ALL);
