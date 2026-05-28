@@ -1,24 +1,40 @@
 package com.example.mtplayer.services;
 
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ForwardingPlayer;
+import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
-import androidx.media3.common.Player;
-import android.util.Log;
 
 import com.example.mtplayer.MainActivity;
+import com.example.mtplayer.audio.RubberBandAudioProcessor;
 
+import java.util.ArrayList;
+
+@UnstableApi
 public class PlayerService extends MediaSessionService {
     private ExoPlayer player;
     private MediaSession mediaSession;
+    private RubberBandAudioProcessor rubberBandAudioProcessor;
 
     @Override
     public void onCreate() {
@@ -29,10 +45,64 @@ public class PlayerService extends MediaSessionService {
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .build();
 
-        player = new ExoPlayer.Builder(this)
-                .setAudioAttributes(audioAttributes, true) // handles audio focus
+        rubberBandAudioProcessor = new RubberBandAudioProcessor();
+
+        // Custom factory to inject the high-quality Rubber Band processing chain
+        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this) {
+            @Override
+            protected void buildAudioRenderers(
+                    Context context,
+                    int extensionRendererMode,
+                    MediaCodecSelector mediaCodecSelector,
+                    boolean enableDecoderFallback,
+                    AudioSink audioSink,
+                    Handler eventHandler,
+                    AudioRendererEventListener eventListener,
+                    ArrayList<Renderer> out) {
+                
+                AudioSink highQualitySink = new DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(false)
+                        .setAudioProcessorChain(new DefaultAudioSink.AudioProcessorChain() {
+                            @Override
+                            public AudioProcessor[] getAudioProcessors() {
+                                return new AudioProcessor[] { rubberBandAudioProcessor };
+                            }
+
+                            @Override
+                            public PlaybackParameters applyPlaybackParameters(PlaybackParameters playbackParameters) {
+                                rubberBandAudioProcessor.setSpeed(playbackParameters.speed);
+                                rubberBandAudioProcessor.setPitch(playbackParameters.pitch);
+                                return playbackParameters;
+                            }
+
+                            @Override
+                            public boolean applySkipSilenceEnabled(boolean skipSilenceEnabled) {
+                                // Explicitly disable skip silence as it failed with float formats
+                                return false;
+                            }
+
+                            @Override
+                            public long getMediaDuration(long playoutDuration) {
+                                return rubberBandAudioProcessor.getMediaDuration(playoutDuration);
+                            }
+
+                            @Override
+                            public long getSkippedOutputFrameCount() {
+                                return 0;
+                            }
+                        })
+                        .build();
+
+                super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, 
+                        enableDecoderFallback, highQualitySink, eventHandler, eventListener, out);
+            }
+        };
+
+        player = new ExoPlayer.Builder(this, renderersFactory)
+                .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .build();
+        player.setSkipSilenceEnabled(false);
         player.setRepeatMode(ExoPlayer.REPEAT_MODE_ALL);
 
         player.addListener(new Player.Listener() {

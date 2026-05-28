@@ -111,16 +111,16 @@ public class PlayerFragment extends Fragment {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 float tempo = 0.5f + (progress / 100.0f);
                 binding.tvTempoLabel.setText(String.format(Locale.getDefault(), "Tempo: %.2fx", tempo));
-                if (fromUser) {
-                    viewModel.setSpeed(tempo);
-                }
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {}
 
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                float tempo = 0.5f + (seekBar.getProgress() / 100.0f);
+                viewModel.setSpeed(tempo);
+            }
         });
 
         binding.sbPitch.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -128,16 +128,16 @@ public class PlayerFragment extends Fragment {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 float pitch = 0.5f + (progress / 100.0f);
                 binding.tvPitchLabel.setText(String.format(Locale.getDefault(), "Pitch: %.2fx", pitch));
-                if (fromUser) {
-                    viewModel.setPitch(pitch);
-                }
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {}
 
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                float pitch = 0.5f + (seekBar.getProgress() / 100.0f);
+                viewModel.setPitch(pitch);
+            }
         });
 
         binding.sbPlayerProgress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {

@@ -249,16 +249,22 @@ public class SongViewModel extends ViewModel {
     }
 
     public void setSpeed(float speedValue) {
+        if (speed.getValue() != null && Math.abs(speed.getValue() - speedValue) < 0.01f) {
+            return;
+        }
         speed.setValue(speedValue);
         if (mediaController != null) {
-            mediaController.setPlaybackParameters(new PlaybackParameters(speedValue, pitch.getValue()));
+            mediaController.setPlaybackParameters(new PlaybackParameters(speedValue, pitch.getValue() != null ? pitch.getValue() : 1.0f));
         }
     }
 
     public void setPitch(float pitchValue) {
+        if (pitch.getValue() != null && Math.abs(pitch.getValue() - pitchValue) < 0.01f) {
+            return;
+        }
         pitch.setValue(pitchValue);
         if (mediaController != null) {
-            mediaController.setPlaybackParameters(new PlaybackParameters(speed.getValue(), pitchValue));
+            mediaController.setPlaybackParameters(new PlaybackParameters(speed.getValue() != null ? speed.getValue() : 1.0f, pitchValue));
         }
     }
 
