@@ -11,8 +11,10 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ForwardingPlayer;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
-import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
@@ -24,12 +26,15 @@ import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 
 import com.example.mtplayer.MainActivity;
+import com.example.mtplayer.audio.RubberBandAudioProcessor;
 
 import java.util.ArrayList;
 
+@UnstableApi
 public class PlayerService extends MediaSessionService {
     private ExoPlayer player;
     private MediaSession mediaSession;
+    private RubberBandAudioProcessor rubberBandAudioProcessor;
 
     @Override
     public void onCreate() {
@@ -40,7 +45,9 @@ public class PlayerService extends MediaSessionService {
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .build();
 
-        // Heavier processing factory: Overrides the audio renderer to use a custom high-fidelity sink
+        rubberBandAudioProcessor = new RubberBandAudioProcessor();
+
+        // Custom factory to inject the high-quality Rubber Band processing chain
         DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this) {
             @Override
             protected void buildAudioRenderers(
@@ -53,14 +60,37 @@ public class PlayerService extends MediaSessionService {
                     AudioRendererEventListener eventListener,
                     ArrayList<Renderer> out) {
                 
-                // We inject a custom Sonic processor that oversamples to 96kHz to reduce aliasing
-                SonicAudioProcessor highQualityProcessor = new SonicAudioProcessor();
-                highQualityProcessor.setOutputSampleRateHz(96000);
-
                 AudioSink highQualitySink = new DefaultAudioSink.Builder(context)
-                        .setAudioProcessorChain(new DefaultAudioSink.DefaultAudioProcessorChain(highQualityProcessor))
-                        .setEnableFloatOutput(true) // 32-bit float precision
-                        .setEnableAudioTrackPlaybackParams(true) // Use hardware-optimized resampler on top of our oversampling
+                        .setEnableFloatOutput(false)
+                        .setAudioProcessorChain(new DefaultAudioSink.AudioProcessorChain() {
+                            @Override
+                            public AudioProcessor[] getAudioProcessors() {
+                                return new AudioProcessor[] { rubberBandAudioProcessor };
+                            }
+
+                            @Override
+                            public PlaybackParameters applyPlaybackParameters(PlaybackParameters playbackParameters) {
+                                rubberBandAudioProcessor.setSpeed(playbackParameters.speed);
+                                rubberBandAudioProcessor.setPitch(playbackParameters.pitch);
+                                return playbackParameters;
+                            }
+
+                            @Override
+                            public boolean applySkipSilenceEnabled(boolean skipSilenceEnabled) {
+                                // Explicitly disable skip silence as it failed with float formats
+                                return false;
+                            }
+
+                            @Override
+                            public long getMediaDuration(long playoutDuration) {
+                                return rubberBandAudioProcessor.getMediaDuration(playoutDuration);
+                            }
+
+                            @Override
+                            public long getSkippedOutputFrameCount() {
+                                return 0;
+                            }
+                        })
                         .build();
 
                 super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, 
@@ -72,6 +102,7 @@ public class PlayerService extends MediaSessionService {
                 .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .build();
+        player.setSkipSilenceEnabled(false);
         player.setRepeatMode(ExoPlayer.REPEAT_MODE_ALL);
 
         player.addListener(new Player.Listener() {
