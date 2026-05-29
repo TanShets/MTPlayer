@@ -63,6 +63,16 @@ public class RubberBandStretcher {
         }
     }
 
+    public void reset() {
+        if (nativeHandle != 0) {
+            nativeReset(nativeHandle);
+        }
+    }
+
+    public int getLatency() {
+        return nativeHandle != 0 ? nativeGetLatency(nativeHandle) : 0;
+    }
+
     public void release() {
         if (nativeHandle != 0) {
             nativeRelease(nativeHandle);
@@ -86,5 +96,7 @@ public class RubberBandStretcher {
     private native int nativeRetrieve(long handle, float[] output);
     private native void nativeSetPitchScale(long handle, double pitchScale);
     private native void nativeSetTimeRatio(long handle, double timeRatio);
+    private native void nativeReset(long handle);
+    private native int nativeGetLatency(long handle);
     private native void nativeRelease(long handle);
 }

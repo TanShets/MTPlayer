@@ -33,23 +33,33 @@ public class RubberBandAudioProcessor implements AudioProcessor {
 
     private float[] inputFloats;
     private float[] outputFloats;
+    private short[] inputShorts;
+    private short[] outputShorts;
+
+    private long totalInputFrames = 0;
+    private long totalOutputFrames = 0;
+    private long lastLogTime = 0;
 
     public RubberBandAudioProcessor() {
         inputAudioFormat = AudioFormat.NOT_SET;
         outputAudioFormat = AudioFormat.NOT_SET;
-        buffer = EMPTY_BUFFER;
+        // Pre-allocate a reasonable buffer to avoid GC pressure
+        buffer = ByteBuffer.allocateDirect(1024 * 64).order(ByteOrder.nativeOrder());
         outputBuffer = EMPTY_BUFFER;
         inputFloats = new float[0];
         outputFloats = new float[0];
+        inputShorts = new short[0];
+        outputShorts = new short[0];
     }
 
     /**
      * Sets the target pitch.
      */
     public synchronized void setPitch(float pitch) {
-        Log.d(TAG, "PITCH_CHANGE: " + pitch);
-        if (this.pitch != pitch) {
-            this.pitch = pitch;
+        float roundedPitch = Math.round(pitch * 100.0f) / 100.0f;
+        if (this.pitch != roundedPitch) {
+            Log.d(TAG, "PITCH_CHANGE: " + this.pitch + " -> " + roundedPitch);
+            this.pitch = roundedPitch;
             parametersChanged = true;
         }
     }
@@ -58,15 +68,16 @@ public class RubberBandAudioProcessor implements AudioProcessor {
      * Sets the target speed (tempo).
      */
     public synchronized void setSpeed(float speed) {
-        Log.d(TAG, "SPEED_CHANGE: " + speed);
-        if (this.speed != speed) {
-            this.speed = speed;
+        float roundedSpeed = Math.round(speed * 100.0f) / 100.0f;
+        if (this.speed != roundedSpeed) {
+            Log.d(TAG, "SPEED_CHANGE: " + this.speed + " -> " + roundedSpeed);
+            this.speed = roundedSpeed;
             parametersChanged = true;
         }
     }
 
     /**
-     * Calculates the media duration from the playout duration, taking speed into account.
+     * Calculates the media duration from the playout duration.
      */
     public synchronized long getMediaDuration(long playoutDuration) {
         return (long) (playoutDuration * speed);
@@ -74,8 +85,10 @@ public class RubberBandAudioProcessor implements AudioProcessor {
 
     private synchronized void updateParameters() {
         if (stretcher != null && parametersChanged) {
-            stretcher.setPitchScale(pitch);
-            stretcher.setTimeRatio(1.0 / speed);
+            double roundedPitch = Math.round(pitch * 100.0) / 100.0;
+            double roundedSpeed = Math.round(speed * 100.0) / 100.0;
+            stretcher.setPitchScale(roundedPitch);
+            stretcher.setTimeRatio(1.0 / roundedSpeed);
             parametersChanged = false;
         }
     }
@@ -86,8 +99,21 @@ public class RubberBandAudioProcessor implements AudioProcessor {
             // Force 16-bit PCM input. ExoPlayer will insert a converter if needed.
             throw new UnhandledAudioFormatException(inputAudioFormat);
         }
-        this.inputAudioFormat = inputAudioFormat;
-        this.outputAudioFormat = inputAudioFormat;
+        
+        if (!this.inputAudioFormat.equals(inputAudioFormat)) {
+            Log.d(TAG, "Format changed: " + this.inputAudioFormat + " -> " + inputAudioFormat);
+            
+            // Full reset to ensure no state from previous format leaks
+            flush(); 
+            if (stretcher != null) {
+                stretcher.release();
+                stretcher = null;
+            }
+            
+            this.inputAudioFormat = inputAudioFormat;
+            this.outputAudioFormat = inputAudioFormat;
+        }
+        
         return outputAudioFormat;
     }
 
@@ -104,7 +130,7 @@ public class RubberBandAudioProcessor implements AudioProcessor {
         }
 
         if (stretcher == null) {
-            Log.d(TAG, "Initializing stretcher: " + inputAudioFormat.sampleRate + "Hz, " + inputAudioFormat.channelCount + "ch");
+            Log.d(TAG, "Initializing stretcher for " + inputAudioFormat.sampleRate + "Hz, " + inputAudioFormat.channelCount + " channels");
             stretcher = new RubberBandStretcher(
                     inputAudioFormat.sampleRate,
                     inputAudioFormat.channelCount,
@@ -112,7 +138,7 @@ public class RubberBandAudioProcessor implements AudioProcessor {
                     pitch
             );
             if (!stretcher.isValid()) {
-                Log.e(TAG, "Failed to initialize RubberBandStretcher");
+                Log.e(TAG, "Failed to initialize stretcher!");
                 stretcher = null;
                 inputBuffer.position(inputBuffer.limit());
                 return;
@@ -121,34 +147,40 @@ public class RubberBandAudioProcessor implements AudioProcessor {
 
         updateParameters();
 
-        int totalFloats = remaining / (2 * inputAudioFormat.channelCount);
-        int totalFloatsCount = totalFloats * inputAudioFormat.channelCount;
+        int frameSize = 2 * inputAudioFormat.channelCount;
+        int frameCount = remaining / frameSize;
+        int totalSamples = frameCount * inputAudioFormat.channelCount;
         
-        if (inputFloats.length < totalFloatsCount) {
-            inputFloats = new float[totalFloatsCount];
-        }
-        
-        for (int i = 0; i < totalFloatsCount; i++) {
-            inputFloats[i] = inputBuffer.getShort() / 32768.0f;
-        }
+        if (totalSamples > 0) {
+            if (inputFloats.length < totalSamples) {
+                inputFloats = new float[totalSamples];
+            }
+            if (inputShorts.length < totalSamples) {
+                inputShorts = new short[totalSamples];
+            }
+            
+            // Optimization: Use bulk read from the ByteBuffer
+            inputBuffer.asShortBuffer().get(inputShorts, 0, totalSamples);
+            
+            for (int inputIdx = 0; inputIdx < totalSamples; inputIdx++) {
+                inputFloats[inputIdx] = inputShorts[inputIdx] / 32768.0f;
+            }
 
-        if (totalFloatsCount > 0 && stretcher != null && stretcher.isValid()) {
-            try {
-                Log.v(TAG, "Process start: " + totalFloatsCount);
-                stretcher.process(inputFloats, totalFloatsCount, false);
-                Log.v(TAG, "Process end");
-            } catch (Exception e) {
-                Log.e(TAG, "Error during native process", e);
+            if (stretcher != null && stretcher.isValid()) {
+                stretcher.process(inputFloats, totalSamples, false);
+                totalInputFrames += frameCount;
             }
         }
+        
+        inputBuffer.position(inputBuffer.limit());
     }
 
     @Override
     public synchronized void queueEndOfStream() {
-        if (stretcher != null && stretcher.isValid()) {
-            Log.d(TAG, "EOS_MARKER: Queueing end of stream - avoiding native call");
-        }
+        Log.d(TAG, "queueEndOfStream() called. Total input frames: " + totalInputFrames);
         inputEnded = true;
+        // Bypassing native EOS flush for now as it may cause SIGSEGV on some devices
+        // if called with 0 samples. Rubber Band will drain anyway when available() is called.
     }
 
     @Override
@@ -163,12 +195,12 @@ public class RubberBandAudioProcessor implements AudioProcessor {
 
         int available = stretcher.available();
         if (available > 0) {
-            Log.v(TAG, "Available: " + available);
-            int totalSamples = available * inputAudioFormat.channelCount;
-            int byteCount = totalSamples * 2; // 16-bit PCM output
+            int channels = inputAudioFormat.channelCount;
+            int totalSamples = available * channels;
+            int byteCount = totalSamples * 2; 
             
             if (buffer.capacity() < byteCount) {
-                Log.d(TAG, "Reallocating output buffer: " + byteCount + " bytes");
+                Log.d(TAG, "Reallocating output buffer to " + byteCount);
                 buffer = ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
             } else {
                 buffer.clear();
@@ -177,20 +209,34 @@ public class RubberBandAudioProcessor implements AudioProcessor {
             if (outputFloats.length < totalSamples) {
                 outputFloats = new float[totalSamples];
             }
+            if (outputShorts.length < totalSamples) {
+                outputShorts = new short[totalSamples];
+            }
             
-            Log.v(TAG, "Retrieve start: " + available);
             int retrieved = stretcher.retrieve(outputFloats);
-            Log.v(TAG, "Retrieve end: " + retrieved);
-            
             if (retrieved > 0) {
-                int retrievedSamples = retrieved * inputAudioFormat.channelCount;
+                totalOutputFrames += retrieved;
+                
+                // Monitor for drift every 5 seconds
+                long currentTime = android.os.SystemClock.elapsedRealtime();
+                if (currentTime - lastLogTime > 5000) {
+                    double expectedOutput = totalInputFrames / speed;
+                    double drift = totalOutputFrames - expectedOutput;
+                    Log.d(TAG, "Drift: " + drift + " frames (Latency: " + stretcher.getLatency() + ")");
+                    lastLogTime = currentTime;
+                }
+
+                int retrievedSamples = retrieved * channels;
                 for (int i = 0; i < retrievedSamples; i++) {
                     float f = outputFloats[i];
-                    // Clamp to [-1.0, 1.0]
                     if (f > 1.0f) f = 1.0f;
                     else if (f < -1.0f) f = -1.0f;
-                    buffer.putShort((short) (f * 32767.0f));
+                    outputShorts[i] = (short) (f * 32767.0f);
                 }
+                
+                // Bulk write to ByteBuffer
+                buffer.asShortBuffer().put(outputShorts, 0, retrievedSamples);
+                buffer.position(retrievedSamples * 2);
                 buffer.flip();
                 outputBuffer = buffer;
             } else {
@@ -198,6 +244,9 @@ public class RubberBandAudioProcessor implements AudioProcessor {
             }
         } else {
             outputBuffer = EMPTY_BUFFER;
+            if (inputEnded && available == 0) {
+                Log.d(TAG, "Drained all frames after EOS");
+            }
         }
 
         return outputBuffer;
@@ -205,22 +254,45 @@ public class RubberBandAudioProcessor implements AudioProcessor {
 
     @Override
     public synchronized boolean isEnded() {
-        return inputEnded && (stretcher == null || stretcher.available() == 0);
+        // Must drain the current output buffer first
+        if (outputBuffer.hasRemaining()) {
+            return false;
+        }
+        if (!inputEnded) {
+            return false;
+        }
+        if (stretcher == null) {
+            return true;
+        }
+        // Rubber Band available() returns -1 when the stream is fully processed and all output retrieved.
+        int avail = stretcher.available();
+        if (avail == -1) {
+            Log.d(TAG, "isEnded: Stretcher signaled completion (-1). Total output frames: " + totalOutputFrames);
+            return true;
+        }
+        return avail == 0;
     }
 
     @Override
     public synchronized void flush() {
+        Log.d(TAG, "flush() called - recreating stretcher");
         if (stretcher != null) {
             stretcher.release();
             stretcher = null;
         }
         outputBuffer = EMPTY_BUFFER;
         inputEnded = false;
+        totalInputFrames = 0;
+        totalOutputFrames = 0;
     }
 
     @Override
     public synchronized void reset() {
         flush();
+        if (stretcher != null) {
+            stretcher.release();
+            stretcher = null;
+        }
         inputAudioFormat = AudioFormat.NOT_SET;
         outputAudioFormat = AudioFormat.NOT_SET;
     }
