@@ -40,29 +40,17 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeProcess(JNIEnv *env, j
                                                                  jint length,
                                                                  jboolean is_final) {
     RubberBandStretcher *stretcher = reinterpret_cast<RubberBandStretcher *>(handle);
-    if (!stretcher) {
-        LOGE("nativeProcess: Invalid stretcher handle");
-        return;
-    }
-
-    if (length == 0 && !is_final) return;
-
-    jfloat *data = env->GetFloatArrayElements(input, nullptr);
-    if (!data) {
-        LOGE("nativeProcess: Failed to get float array elements");
-        return;
-    }
+    if (!stretcher) return;
 
     size_t channels = stretcher->getChannelCount();
-    if (channels == 0) {
-        LOGE("nativeProcess: Channel count is zero");
-        env->ReleaseFloatArrayElements(input, data, JNI_ABORT);
-        return;
-    }
+    if (channels == 0) return;
 
     size_t samples = static_cast<size_t>(length) / channels;
 
     if (samples > 0) {
+        jfloat *data = env->GetFloatArrayElements(input, nullptr);
+        if (!data) return;
+
         // De-interleave
         std::vector<float *> buffers(channels);
         std::vector<std::vector<float>> channelData(channels, std::vector<float>(samples));
@@ -74,11 +62,13 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeProcess(JNIEnv *env, j
             buffers[c] = channelData[c].data();
         }
         stretcher->process(buffers.data(), samples, is_final);
+        env->ReleaseFloatArrayElements(input, data, JNI_ABORT);
     } else if (is_final) {
-        stretcher->process(nullptr, 0, true);
+        // Safe EOS flush using valid pointers to avoid SIGSEGV in some versions
+        std::vector<float *> pointers(channels, nullptr);
+        stretcher->process(pointers.data(), 0, true);
+        LOGD("nativeProcess: Sent EOS flush (is_final=true)");
     }
-
-    env->ReleaseFloatArrayElements(input, data, JNI_ABORT);
 }
 
 extern "C"
@@ -116,6 +106,7 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeRetrieve(JNIEnv *env, 
         return 0;
     }
 
+    // De-interleave style retrieval
     std::vector<float *> buffers(channels);
     std::vector<std::vector<float>> channelData(channels, std::vector<float>(samplesToRetrieve));
     for (size_t c = 0; c < channels; ++c) {
@@ -143,7 +134,9 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeSetPitchScale(JNIEnv *
                                                                        jlong handle,
                                                                        jdouble pitch_scale) {
     RubberBandStretcher *stretcher = reinterpret_cast<RubberBandStretcher *>(handle);
-    if (stretcher) stretcher->setPitchScale(pitch_scale);
+    if (stretcher && pitch_scale > 0) {
+        stretcher->setPitchScale(pitch_scale);
+    }
 }
 
 extern "C"
@@ -152,7 +145,26 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeSetTimeRatio(JNIEnv *e
                                                                       jlong handle,
                                                                       jdouble time_ratio) {
     RubberBandStretcher *stretcher = reinterpret_cast<RubberBandStretcher *>(handle);
-    if (stretcher) stretcher->setTimeRatio(time_ratio);
+    if (stretcher && time_ratio > 0) {
+        stretcher->setTimeRatio(time_ratio);
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_mtplayer_audio_RubberBandStretcher_nativeReset(JNIEnv *env, jobject thiz,
+                                                               jlong handle) {
+    RubberBandStretcher *stretcher = reinterpret_cast<RubberBandStretcher *>(handle);
+    if (stretcher) stretcher->reset();
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_mtplayer_audio_RubberBandStretcher_nativeGetLatency(JNIEnv *env, jobject thiz,
+                                                                    jlong handle) {
+    RubberBandStretcher *stretcher = reinterpret_cast<RubberBandStretcher *>(handle);
+    if (!stretcher) return 0;
+    return static_cast<jint>(stretcher->getStartDelay());
 }
 
 extern "C"
