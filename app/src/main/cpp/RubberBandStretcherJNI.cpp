@@ -51,23 +51,25 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeProcess(JNIEnv *env, j
         jfloat *data = env->GetFloatArrayElements(input, nullptr);
         if (!data) return;
 
-        // De-interleave
+        // Efficient de-interleave using a flat buffer
         std::vector<float *> buffers(channels);
-        std::vector<std::vector<float>> channelData(channels, std::vector<float>(samples));
-
+        std::vector<float> flatBuffer(samples * channels);
         for (size_t c = 0; c < channels; ++c) {
+            buffers[c] = &flatBuffer[c * samples];
             for (size_t s = 0; s < samples; ++s) {
-                channelData[c][s] = data[s * channels + c];
+                buffers[c][s] = data[s * channels + c];
             }
-            buffers[c] = channelData[c].data();
         }
+
         stretcher->process(buffers.data(), samples, is_final);
         env->ReleaseFloatArrayElements(input, data, JNI_ABORT);
     } else if (is_final) {
-        // Safe EOS flush using valid pointers to avoid SIGSEGV in some versions
-        std::vector<float *> pointers(channels, nullptr);
+        // Safe EOS flush: pass pointers to a tiny silence buffer instead of nullptr
+        // to avoid address 0x0 crashes in some library versions.
+        float silence = 0.0f;
+        std::vector<float *> pointers(channels, &silence);
         stretcher->process(pointers.data(), 0, true);
-        LOGD("nativeProcess: Sent EOS flush (is_final=true)");
+        LOGD("nativeProcess: Sent safe EOS flush (is_final=true)");
     }
 }
 
@@ -106,11 +108,11 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeRetrieve(JNIEnv *env, 
         return 0;
     }
 
-    // De-interleave style retrieval
+    // Efficient retrieval using a flat buffer
     std::vector<float *> buffers(channels);
-    std::vector<std::vector<float>> channelData(channels, std::vector<float>(samplesToRetrieve));
+    std::vector<float> flatBuffer(samplesToRetrieve * channels);
     for (size_t c = 0; c < channels; ++c) {
-        buffers[c] = channelData[c].data();
+        buffers[c] = &flatBuffer[c * samplesToRetrieve];
     }
 
     size_t retrieved = stretcher->retrieve(buffers.data(), samplesToRetrieve);
@@ -119,7 +121,7 @@ Java_com_example_mtplayer_audio_RubberBandStretcher_nativeRetrieve(JNIEnv *env, 
         // Interleave back
         for (size_t c = 0; c < channels; ++c) {
             for (size_t s = 0; s < retrieved; ++s) {
-                data[s * channels + c] = channelData[c][s];
+                data[s * channels + c] = buffers[c][s];
             }
         }
     }
