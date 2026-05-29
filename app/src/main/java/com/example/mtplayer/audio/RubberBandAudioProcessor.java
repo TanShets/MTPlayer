@@ -179,8 +179,10 @@ public class RubberBandAudioProcessor implements AudioProcessor {
     public synchronized void queueEndOfStream() {
         Log.d(TAG, "queueEndOfStream() called. Total input frames: " + totalInputFrames);
         inputEnded = true;
-        // Bypassing native EOS flush for now as it may cause SIGSEGV on some devices
-        // if called with 0 samples. Rubber Band will drain anyway when available() is called.
+        if (stretcher != null && stretcher.isValid()) {
+            // Safe to call now that JNI has safety pointers
+            stretcher.process(new float[0], 0, true);
+        }
     }
 
     @Override
@@ -227,11 +229,11 @@ public class RubberBandAudioProcessor implements AudioProcessor {
                 }
 
                 int retrievedSamples = retrieved * channels;
-                for (int i = 0; i < retrievedSamples; i++) {
-                    float f = outputFloats[i];
+                for (int m = 0; m < retrievedSamples; m++) {
+                    float f = outputFloats[m];
                     if (f > 1.0f) f = 1.0f;
                     else if (f < -1.0f) f = -1.0f;
-                    outputShorts[i] = (short) (f * 32767.0f);
+                    outputShorts[m] = (short) (f * 32767.0f);
                 }
                 
                 // Bulk write to ByteBuffer
