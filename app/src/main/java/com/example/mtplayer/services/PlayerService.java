@@ -26,7 +26,7 @@ import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 
 import com.example.mtplayer.MainActivity;
-import com.example.mtplayer.audio.RubberBandAudioProcessor;
+import com.example.mtplayer.audio.SoundTouchAudioProcessor;
 
 import java.util.ArrayList;
 
@@ -34,7 +34,7 @@ import java.util.ArrayList;
 public class PlayerService extends MediaSessionService {
     private ExoPlayer player;
     private MediaSession mediaSession;
-    private RubberBandAudioProcessor rubberBandAudioProcessor;
+    private SoundTouchAudioProcessor soundTouchAudioProcessor;
 
     @Override
     public void onCreate() {
@@ -45,7 +45,7 @@ public class PlayerService extends MediaSessionService {
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .build();
 
-        rubberBandAudioProcessor = new RubberBandAudioProcessor();
+        soundTouchAudioProcessor = new SoundTouchAudioProcessor();
 
         // Custom factory to inject the high-quality Rubber Band processing chain
         DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this) {
@@ -61,29 +61,29 @@ public class PlayerService extends MediaSessionService {
                     ArrayList<Renderer> out) {
                 
                 AudioSink highQualitySink = new DefaultAudioSink.Builder(context)
-                        .setEnableFloatOutput(false)
+                        .setEnableFloatOutput(true)
                         .setAudioProcessorChain(new DefaultAudioSink.AudioProcessorChain() {
                             @Override
                             public AudioProcessor[] getAudioProcessors() {
-                                return new AudioProcessor[] { rubberBandAudioProcessor };
+                                return new AudioProcessor[] { soundTouchAudioProcessor };
                             }
 
                             @Override
                             public PlaybackParameters applyPlaybackParameters(PlaybackParameters playbackParameters) {
-                                rubberBandAudioProcessor.setSpeed(playbackParameters.speed);
-                                rubberBandAudioProcessor.setPitch(playbackParameters.pitch);
+                                soundTouchAudioProcessor.setSpeed(playbackParameters.speed);
+                                soundTouchAudioProcessor.setPitch(playbackParameters.pitch);
                                 return playbackParameters;
                             }
 
                             @Override
                             public boolean applySkipSilenceEnabled(boolean skipSilenceEnabled) {
-                                // Explicitly disable skip silence as it failed with float formats
+                                // Explicitly disable skip silence
                                 return false;
                             }
 
                             @Override
                             public long getMediaDuration(long playoutDuration) {
-                                return rubberBandAudioProcessor.getMediaDuration(playoutDuration);
+                                return soundTouchAudioProcessor.getMediaDuration(playoutDuration);
                             }
 
                             @Override

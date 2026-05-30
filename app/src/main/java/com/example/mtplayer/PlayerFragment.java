@@ -126,8 +126,9 @@ public class PlayerFragment extends Fragment {
         binding.sbPitch.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float pitch = 0.5f + (progress / 100.0f);
-                binding.tvPitchLabel.setText(String.format(Locale.getDefault(), "Pitch: %.2fx", pitch));
+                int semitones = progress - 12;
+                float multiplier = (float) Math.pow(2.0, semitones / 12.0);
+                binding.tvPitchLabel.setText(String.format(Locale.getDefault(), "Pitch: %+d semitones (%.2fx)", semitones, multiplier));
             }
 
             @Override
@@ -135,8 +136,9 @@ public class PlayerFragment extends Fragment {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                float pitch = 0.5f + (seekBar.getProgress() / 100.0f);
-                viewModel.setPitch(pitch);
+                int semitones = seekBar.getProgress() - 12;
+                float multiplier = (float) Math.pow(2.0, semitones / 12.0);
+                viewModel.setPitch(multiplier);
             }
         });
 
@@ -223,9 +225,10 @@ public class PlayerFragment extends Fragment {
 
         viewModel.getPitch().observe(getViewLifecycleOwner(), pitch -> {
             if (pitch != null) {
-                int progress = (int) ((pitch - 0.5f) * 100);
-                binding.sbPitch.setProgress(progress);
-                binding.tvPitchLabel.setText(String.format(Locale.getDefault(), "Pitch: %.2fx", pitch));
+                // Multiplier to semitones: s = 12 * log2(m)
+                int semitones = (int) Math.round(12.0 * Math.log(pitch) / Math.log(2.0));
+                binding.sbPitch.setProgress(semitones + 12);
+                binding.tvPitchLabel.setText(String.format(Locale.getDefault(), "Pitch: %+d semitones (%.2fx)", semitones, pitch));
             }
         });
 
@@ -275,15 +278,12 @@ public class PlayerFragment extends Fragment {
         if (stop) {
             binding.btnRepeatMode.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
             binding.btnRepeatMode.setAlpha(1.0f);
-            Toast.makeText(getContext(), "Behavior: Stop after this song", Toast.LENGTH_SHORT).show();
         } else if (mode == Player.REPEAT_MODE_ONE) {
             binding.btnRepeatMode.setImageResource(android.R.drawable.stat_notify_sync);
             binding.btnRepeatMode.setAlpha(1.0f);
-            Toast.makeText(getContext(), "Behavior: Repeat Current", Toast.LENGTH_SHORT).show();
         } else {
             binding.btnRepeatMode.setImageResource(android.R.drawable.stat_notify_sync);
             binding.btnRepeatMode.setAlpha(0.3f);
-            Toast.makeText(getContext(), "Behavior: Next Song", Toast.LENGTH_SHORT).show();
         }
     }
 
