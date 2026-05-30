@@ -150,7 +150,12 @@ public class SoundTouchAudioProcessor implements AudioProcessor {
 
     @Override
     public synchronized void queueEndOfStream() {
-        inputEnded = true;
+        if (!inputEnded) {
+            inputEnded = true;
+            if (soundTouch != null) {
+                soundTouch.flush();
+            }
+        }
     }
 
     @Override
