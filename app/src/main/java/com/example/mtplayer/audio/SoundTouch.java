@@ -8,13 +8,16 @@ public class SoundTouch {
         System.loadLibrary("soundtouch-jni");
     }
 
-    // SoundTouch Settings
-    public static final int SETTING_USE_AA_FILTER = 1;
-    public static final int SETTING_AA_FILTER_LENGTH = 2;
-    public static final int SETTING_USE_QUICKSEEK = 3;
-    public static final int SETTING_SEQUENCE_MS = 4;
-    public static final int SETTING_SEEKWINDOW_MS = 5;
-    public static final int SETTING_OVERLAP_MS = 6;
+    // SoundTouch Settings (matching SoundTouch.h)
+    public static final int SETTING_USE_AA_FILTER = 0;
+    public static final int SETTING_AA_FILTER_LENGTH = 1;
+    public static final int SETTING_USE_QUICKSEEK = 2;
+    public static final int SETTING_SEQUENCE_MS = 3;
+    public static final int SETTING_SEEKWINDOW_MS = 4;
+    public static final int SETTING_OVERLAP_MS = 5;
+    public static final int SETTING_NOMINAL_INPUT_SEQUENCE = 6;
+    public static final int SETTING_NOMINAL_OUTPUT_SEQUENCE = 7;
+    public static final int SETTING_INITIAL_LATENCY = 8;
 
     private long nativeHandle;
 

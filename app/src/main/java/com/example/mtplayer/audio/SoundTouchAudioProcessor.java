@@ -103,6 +103,15 @@ public class SoundTouchAudioProcessor implements AudioProcessor {
             soundTouch = new SoundTouch();
             soundTouch.setSampleRate(inputAudioFormat.sampleRate);
             soundTouch.setChannels(inputAudioFormat.channelCount);
+            
+            // High-quality settings for music playback
+            soundTouch.setSetting(SoundTouch.SETTING_USE_AA_FILTER, 1);
+            soundTouch.setSetting(SoundTouch.SETTING_AA_FILTER_LENGTH, 128);
+            soundTouch.setSetting(SoundTouch.SETTING_USE_QUICKSEEK, 0); // Better quality than quickseek
+            soundTouch.setSetting(SoundTouch.SETTING_SEQUENCE_MS, 100);
+            soundTouch.setSetting(SoundTouch.SETTING_SEEKWINDOW_MS, 35);
+            soundTouch.setSetting(SoundTouch.SETTING_OVERLAP_MS, 20);
+
             soundTouch.setPitch(pitch);
             soundTouch.setTempo(speed);
         }
@@ -139,8 +148,9 @@ public class SoundTouchAudioProcessor implements AudioProcessor {
                 }
                 inputBuffer.asShortBuffer().get(inputShorts, 0, totalSamples);
                 // Convert 16-bit short to float [-1.0, 1.0]
+                final float inv32768 = 1.0f / 32768.0f;
                 for (int i = 0; i < totalSamples; i++) {
-                    inputFloats[i] = inputShorts[i] / 32768.0f;
+                    inputFloats[i] = inputShorts[i] * inv32768;
                 }
                 soundTouch.putSamples(inputFloats, frameCount);
                 inputBuffer.position(inputBuffer.position() + totalSamples * 2);
